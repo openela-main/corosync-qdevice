@@ -1,0 +1,41 @@
+From 4331c7d5650a8bf44c16512419f1954d0ef96df5 Mon Sep 17 00:00:00 2001
+From: Jan Friesse <jfriesse@redhat.com>
+Date: Mon, 20 Mar 2023 11:01:46 +0100
+Subject: [PATCH] qdevice: Destroy non blocking client on failure
+
+This fixes regression introduced in patch
+8217e33e86bca79dc307e112f0c0c4a278f9a568 which made qdevice assert when
+PR_GetError in nss_sock_non_blocking_client_try_next called by
+qdevice_model_net_pre_poll_loop returns error other than
+PR_IN_PROGRESS_ERROR. This is usually not happening - only way to get
+such error seems to be to ifdown ALL network interfaces other than
+loopback and returned error is then PR_NETWORK_UNREACHABLE_ERROR
+(-5980).
+
+Fix is rather simple (and present in pre
+8217e33e86bca79dc307e112f0c0c4a278f9a568) - just call
+nss_sock_non_blocking_client_destroy.
+
+Signed-off-by: Jan Friesse <jfriesse@redhat.com>
+---
+ qdevices/qdevice-model-net.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/qdevices/qdevice-model-net.c b/qdevices/qdevice-model-net.c
+index afcc649..f63e4bd 100644
+--- a/qdevices/qdevice-model-net.c
++++ b/qdevices/qdevice-model-net.c
+@@ -211,6 +211,10 @@ qdevice_model_net_pre_poll_loop(struct qdevice_instance *instance)
+ 	res = nss_sock_non_blocking_client_try_next(&net_instance->non_blocking_client);
+ 	if (res == -1) {
+ 		log_nss(LOG_ERR, "Can't connect to qnetd host");
++		/*
++		 * To prevent adding non_blocking_client into loop but still keep loop running
++		 */
++		nss_sock_non_blocking_client_destroy(&net_instance->non_blocking_client);
+ 	}
+ 
+ 	res = qdevice_net_socket_add_to_main_poll_loop(net_instance);
+-- 
+2.39.1
+
