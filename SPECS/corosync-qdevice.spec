@@ -11,12 +11,12 @@
 Name: corosync-qdevice
 Summary: The Corosync Cluster Engine Qdevice
 Version: 3.0.2
-Release: 1%{?gitver}%{?dist}.1
+Release: 2%{?gitver}%{?dist}
 License: BSD
 URL: https://github.com/corosync/corosync-qdevice
 Source0: https://github.com/corosync/corosync-qdevice/releases/download/v%{version}%{?gittarver}/%{name}-%{version}%{?gittarver}.tar.gz
 
-Patch0: bz2178715-1-qdevice-Destroy-non-blocking-client-on-failure.patch
+Patch0: bz2181322-1-qdevice-Destroy-non-blocking-client-on-failure.patch
 
 # Runtime bits
 Requires: corosync >= 2.4.0
@@ -47,7 +47,7 @@ BuildRequires: autoconf automake libtool
 %prep
 %setup -q -n %{name}-%{version}%{?gittarver}
 
-%patch0 -p1 -b .bz2178715-1
+%patch0 -p1 -b .bz2181322-1
 
 %build
 %if %{with runautogen}
@@ -210,11 +210,11 @@ fi
 %{_mandir}/man8/corosync-qnetd.8*
 
 %changelog
-* Thu Mar 23 2023 Jan Friesse <jfriesse@redhat.com> - 3.0.2-1.1
-- Resolves: rhbz#2178715
+* Thu Mar 23 2023 Jan Friesse <jfriesse@redhat.com> - 3.0.2-2
+- Resolves: rhbz#2181322
 
-- qdevice: Destroy non blocking client on failure (rhbz#2178715)
-- merge upstream commit 4331c7d5650a8bf44c16512419f1954d0ef96df5 (rhbz#2178715)
+- qdevice: Destroy non blocking client on failure (rhbz#2181322)
+- merge upstream commit 4331c7d5650a8bf44c16512419f1954d0ef96df5 (rhbz#2181322)
 
 * Thu Nov 03 2022 Jan Friesse <jfriesse@redhat.com> - 3.0.2-1
 - Resolves: rhbz#2135862
