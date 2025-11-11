@@ -11,10 +11,11 @@
 Name: corosync-qdevice
 Summary: The Corosync Cluster Engine Qdevice
 Version: 3.0.2
-Release: 2%{?gitver}%{?dist}
+Release: 3%{?gitver}%{?dist}
 License: BSD
 URL: https://github.com/corosync/corosync-qdevice
 Source0: https://github.com/corosync/corosync-qdevice/releases/download/v%{version}%{?gittarver}/%{name}-%{version}%{?gittarver}.tar.gz
+Source1: corosync-qnetd.sysusers.conf
 
 Patch0: bz2180045-1-qdevice-Destroy-non-blocking-client-on-failure.patch
 
@@ -44,6 +45,7 @@ BuildRequires: nss-devel
 BuildRequires: autoconf automake libtool
 %endif
 BuildRequires: make
+BuildRequires: systemd-rpm-macros
 
 %prep
 %setup -q -n %{name}-%{version}%{?gittarver}
@@ -91,6 +93,8 @@ sed -i -e 's/^#User=/User=/' \
 sed -i -e 's/^COROSYNC_QNETD_RUNAS=""$/COROSYNC_QNETD_RUNAS="coroqnetd"/' \
    %{buildroot}%{_sysconfdir}/sysconfig/corosync-qnetd
 %endif
+
+install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/corosync-qnetd.conf
 
 %description
 This package contains the Corosync Cluster Engine Qdevice, script for creating
@@ -153,21 +157,19 @@ The Corosync Cluster Engine Qdevice
 %package -n corosync-qnetd
 Summary: The Corosync Cluster Engine Qdevice Network Daemon
 Requires: nss-tools
-Requires(pre): shadow-utils
 
 %if %{with systemd}
 %{?systemd_requires}
 %endif
+
+%{?sysusers_requires_compat}
 
 %description -n corosync-qnetd
 This package contains the Corosync Cluster Engine Qdevice Network Daemon,
 script for creating NSS certificates and an init script.
 
 %pre -n corosync-qnetd
-getent group coroqnetd >/dev/null || groupadd -r coroqnetd
-getent passwd coroqnetd >/dev/null || \
-    useradd -r -g coroqnetd -d / -s /sbin/nologin -c "User for corosync-qnetd" coroqnetd
-exit 0
+%sysusers_create_compat %{SOURCE1}
 
 %post -n corosync-qnetd
 %if %{with systemd} && 0%{?systemd_post:1}
@@ -209,8 +211,14 @@ fi
 %{_mandir}/man8/corosync-qnetd-tool.8*
 %{_mandir}/man8/corosync-qnetd-certutil.8*
 %{_mandir}/man8/corosync-qnetd.8*
+%{_sysusersdir}/corosync-qnetd.conf
 
 %changelog
+* Tue Feb 18 2025 Jan Friesse <jfriesse@redhat.com> - 3.0.2-3
+- Resolves: RHEL-7637
+
+- Add support for sysusers.d functionality (RHEL-7637)
+
 * Thu Mar 23 2023 Jan Friesse <jfriesse@redhat.com> - 3.0.2-2
 - Resolves: rhbz#2180045
 
