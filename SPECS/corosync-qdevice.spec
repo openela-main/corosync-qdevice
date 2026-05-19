@@ -3,35 +3,24 @@
 # to disable or enable specific features
 %bcond_without userflags
 %bcond_with runautogen
-%bcond_without systemd
-
-%global gitver %{?numcomm:.%{numcomm}}%{?alphatag:.%{alphatag}}%{?dirty:.%{dirty}}
-%global gittarver %{?numcomm:.%{numcomm}}%{?alphatag:-%{alphatag}}%{?dirty:-%{dirty}}
 
 Name: corosync-qdevice
 Summary: The Corosync Cluster Engine Qdevice
-Version: 3.0.2
-Release: 3%{?gitver}%{?dist}
-License: BSD
+Version: 3.0.4
+Release: 1%{?gitver}%{?dist}
+License: BSD-3-Clause
 URL: https://github.com/corosync/corosync-qdevice
-Source0: https://github.com/corosync/corosync-qdevice/releases/download/v%{version}%{?gittarver}/%{name}-%{version}%{?gittarver}.tar.gz
+Source0: https://github.com/corosync/corosync-qdevice/releases/download/v%{version}/%{name}-%{version}.tar.gz
 Source1: corosync-qnetd.sysusers.conf
-
-Patch0: bz2180045-1-qdevice-Destroy-non-blocking-client-on-failure.patch
 
 # Runtime bits
 Requires: corosync >= 2.4.0
 Requires: corosynclib >= 2.4.0
 Requires: nss-tools
 
-%if %{with systemd}
 %{?systemd_requires}
 BuildRequires: systemd
 BuildRequires: systemd-devel
-%else
-Requires(post): /sbin/chkconfig
-Requires(preun): /sbin/chkconfig
-%endif
 
 # Build bits
 BuildRequires: gcc
@@ -45,12 +34,11 @@ BuildRequires: nss-devel
 BuildRequires: autoconf automake libtool
 %endif
 BuildRequires: make
+BuildRequires: git
 BuildRequires: systemd-rpm-macros
 
 %prep
-%setup -q -n %{name}-%{version}%{?gittarver}
-
-%patch0 -p1 -b .bz2180045-1
+%autosetup -S git_am
 
 %build
 %if %{with runautogen}
@@ -61,9 +49,7 @@ BuildRequires: systemd-rpm-macros
 %if %{with userflags}
 	--enable-user-flags \
 %endif
-%if %{with systemd}
 	--enable-systemd \
-%endif
 	--enable-qdevices \
 	--enable-qnetd \
 	--with-initddir=%{_initrddir} \
@@ -86,13 +72,8 @@ install -p -m 644 init/corosync-qdevice.sysconfig.example \
 install -p -m 644 init/corosync-qnetd.sysconfig.example \
    %{buildroot}%{_sysconfdir}/sysconfig/corosync-qnetd
 
-%if %{with systemd}
 sed -i -e 's/^#User=/User=/' \
    %{buildroot}%{_unitdir}/corosync-qnetd.service
-%else
-sed -i -e 's/^COROSYNC_QNETD_RUNAS=""$/COROSYNC_QNETD_RUNAS="coroqnetd"/' \
-   %{buildroot}%{_sysconfdir}/sysconfig/corosync-qnetd
-%endif
 
 install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/corosync-qnetd.conf
 
@@ -101,28 +82,13 @@ This package contains the Corosync Cluster Engine Qdevice, script for creating
 NSS certificates and an init script.
 
 %post
-%if %{with systemd} && 0%{?systemd_post:1}
 %systemd_post corosync-qdevice.service
-%else
-if [ $1 -eq 1 ]; then
-	/sbin/chkconfig --add corosync-qdevice || :
-fi
-%endif
 
 %preun
-%if %{with systemd} && 0%{?systemd_preun:1}
 %systemd_preun corosync-qdevice.service
-%else
-if [ $1 -eq 0 ]; then
-	/sbin/service corosync-qdevice stop &>/dev/null || :
-	/sbin/chkconfig --del corosync-qdevice || :
-fi
-%endif
 
 %postun
-%if %{with systemd} && 0%{?systemd_postun:1}
 %systemd_postun corosync-qdevice.service
-%endif
 
 %files
 %license LICENSE
@@ -133,11 +99,7 @@ fi
 %{_sbindir}/corosync-qdevice-net-certutil
 %{_sbindir}/corosync-qdevice-tool
 %config(noreplace) %{_sysconfdir}/sysconfig/corosync-qdevice
-%if %{with systemd}
 %{_unitdir}/corosync-qdevice.service
-%else
-%{_initrddir}/corosync-qdevice
-%endif
 %{_mandir}/man8/corosync-qdevice-tool.8*
 %{_mandir}/man8/corosync-qdevice-net-certutil.8*
 %{_mandir}/man8/corosync-qdevice.8*
@@ -158,9 +120,7 @@ The Corosync Cluster Engine Qdevice
 Summary: The Corosync Cluster Engine Qdevice Network Daemon
 Requires: nss-tools
 
-%if %{with systemd}
 %{?systemd_requires}
-%endif
 
 %{?sysusers_requires_compat}
 
@@ -172,28 +132,13 @@ script for creating NSS certificates and an init script.
 %sysusers_create_compat %{SOURCE1}
 
 %post -n corosync-qnetd
-%if %{with systemd} && 0%{?systemd_post:1}
 %systemd_post corosync-qnetd.service
-%else
-if [ $1 -eq 1 ]; then
-	/sbin/chkconfig --add corosync-qnetd || :
-fi
-%endif
 
 %preun -n corosync-qnetd
-%if %{with systemd} && 0%{?systemd_preun:1}
 %systemd_preun corosync-qnetd.service
-%else
-if [ $1 -eq 0 ]; then
-	/sbin/service corosync-qnetd stop &>/dev/null || :
-	/sbin/chkconfig --del corosync-qnetd || :
-fi
-%endif
 
 %postun -n corosync-qnetd
-%if %{with systemd} && 0%{?systemd_postun:1}
 %systemd_postun corosync-qnetd.service
-%endif
 
 %files -n corosync-qnetd
 %license LICENSE
@@ -203,17 +148,21 @@ fi
 %{_bindir}/corosync-qnetd-certutil
 %{_bindir}/corosync-qnetd-tool
 %config(noreplace) %{_sysconfdir}/sysconfig/corosync-qnetd
-%if %{with systemd}
 %{_unitdir}/corosync-qnetd.service
-%else
-%{_initrddir}/corosync-qnetd
-%endif
 %{_mandir}/man8/corosync-qnetd-tool.8*
 %{_mandir}/man8/corosync-qnetd-certutil.8*
 %{_mandir}/man8/corosync-qnetd.8*
 %{_sysusersdir}/corosync-qnetd.conf
 
 %changelog
+* Tue Nov 25 2025 Jan Friesse <jfriesse@redhat.com> - 3.0.4-1
+- Resolves: RHEL-123650
+- Resolves: RHEL-67471
+
+- New upstream release (RHEL-123650)
+- Support for running corosync-qnetd-tool and corosync-qdevice-tool
+  as a non-root user (RHEL-67471)
+
 * Tue Feb 18 2025 Jan Friesse <jfriesse@redhat.com> - 3.0.2-3
 - Resolves: RHEL-7637
 
